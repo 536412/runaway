@@ -51,108 +51,118 @@ let hangTimer = 0;
 let bikeSpriteSelector = 6;
 
 window.addEventListener(
-    'load',
-    () => {
-      initialize();
-    },
-    false
+	'load',
+	() => {
+		initialize();
+	},
+	false
 );
+
 const initialize = async () => {
-    canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    canvas.style.backgroundColor = 'black';
-    document.getElementById('container').appendChild(canvas);
+	canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	canvas.style.backgroundColor = 'black';
+	document.getElementById('container').appendChild(canvas);
 
-    ctx = canvas.getContext('2d', { alpha: false });
-    ctx.imageSmoothingEnabled = false;
-    ctx.font = '20px verdana';
+	ctx = canvas.getContext('2d');
+	//ctx.imageSmoothingEnabled = false;
+	ctx.font = '20px Verdana';
 
-    Keyboard.setHandlers();
+	Keyboard.setHandlers();
+	Road.reset();
 
-    background = await Loader.loadImage('assets/img/backgrounds.png');
-    sprites = await Loader.loadImage('assets/img/sprites.png');
-    run();
+	background = await Loader.loadImage('assets/img/backgrounds.png');
+	sprites = await Loader.loadImage('assets/img/sprites.png');
+
+	run();
 };
-const run = () => {
-    let now = null;
-    let last =  Util.timestamp();
-    let dt = 0;
-    let gdt = 0;
 
-    const frame = () => {
-      now = Util.timestamp();
-      dt = Math.min(1, (now - last) / 1000);
-      gdt = gdt + dt;
-      while (gdt > step) {
-        gdt = gdt - step;
-        update(step);
-      }
-      render();
-      last = now; 
-      requestAnimationFrame(frame);
-    };
-    frame();
+const run = () => {
+	let now = null;
+	let last = Util.timestamp();
+	let dt = 0;
+	let gdt = 0;
+
+	const frame = () => {
+		now = Util.timestamp();
+		dt = Math.min(1, (now - last) / 1000);
+		gdt = gdt + dt;
+		while (gdt > step) {
+			gdt = gdt - step;
+			update(step);
+		}
+		render();
+		last = now;
+		requestAnimationFrame(frame);
+	};
+
+	frame();
 };
 
 const update = (dt) => {
-    const playerSegment = Segment.find(position + PlayerZ);
-    const speedPercent = speed / maxSpeed;
-    const dx = dt * 2 * speedPercent;
+	const playerSegment = Segment.find(position + playerZ);
+	const speedPercent = speed / maxSpeed;
+	const dx = dt * 2 * speedPercent;
 
-    position = Util.increase(position, dt * speed, trackLength);
+	position = Util.increase(position, dt * speed, trackLength);
 
-    if(keyLeft){
-      playerX -= playerX - dx;
-    } else if (keyRight){
-      playerX += dx;
-    }
+	if (keyLeft) {
+		playerX -= dx;
+	} else if (keyRight) {
+		playerX += dx;
+	}
 
-    playerX = playerX - dx * speedPercent * playerSegment.curve * centrifugal
+	playerX = playerX - dx * speedPercent * playerSegment.curve * centrifugal;
 
-    if(keyFaster){
-      speed = Util.accelerate(speed, accel, dt);
-    }else if (keySlower){
-      speed = Util.accelerate(speed, decel, dt);
-    }else {
-      speed = Util.accelerate(speed, accel, dt);
-    }
-  
-    if ((playerX < -1 || PlayerX > 1) && speed > offRoadLimit){
-      speed = Util.accelerate(speed, offRoadDecel, dt);
-    }
+	if (keyFaster) {
+		speed = Util.accelerate(speed, accel, dt);
+	} else if (keySlower) {
+		speed = Util.accelerate(speed, breaking, dt);
+	} else {
+		speed = Util.accelerate(speed, decel, dt);
+	}
 
-    playerX = Util.limit(playerX, -2, 2);
-    speed = Util.limit(speed, 0, maxSpeed);
+	if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) {
+		speed = Util.accelerate(speed, offRoadDecel, dt);
+	}
+
+	playerX = Util.limit(playerX, -2, 2);
+	speed = Util.limit(speed, 0, maxSpeed);
 };
 
 const render = () => {
-let baseSegment = Segment.find(position);
-let basePercent = Util.percentRemaining(position, segmentLength);
-let playerSegment = Segment.find(position + playerZ);
-console.log(playerSegment);
-let playerPercent = Util.percentRemaining(position + playerZ, segmentLength);
-let playerY = Util.interpolate(playerSegment.p1.world.y, playerSegment.p2.world.y, playerPercent);
-let maxy = height;
-let x = 0;
-let dx = -(baseSegment.curve * basePercent);
-ctx.clearRect(0, 0, width, height);
-let n, i, segment, car, sprite, spriteScale, spriteX, spriteY;
-for (n = 0; n < drawDistance; n++) {
- segment = segments[(baseSegment.index + n) % segments.length];
- segment.looped = segment.index < baseSegment.index;
- segment.fog = Util.exponentialFog(n / drawDistance, fogDensity);
- segment.clip = maxy;
- Util.project(segment.p1, playerX * roadWidth - x, playerY + cameraHeight, position - (segment.looped ? trackLength : 0), cameraDepth, width, height, roadWidth);
- Util.project(segment.p2, playerX * roadWidth - x - dx, playerY + cameraHeight, position - (segment.looped ? trackLength : 0), cameraDepth, width, height, roadWidth);
- x = x + dx;
- dx = dx + segment.curve;
- if(segment.p1.camera.z <= cameraDepth || // behind us
-    segment.p2.screen.y >= segment.p1.screen.y || // back face cull
-    segment.p2.screen.y >= maxy) { // clip by (already rendered) hill
-   continue;
- }
- Render.segment(ctx, width, lanes, segment.p1.screen.x, segment.p1.screen.y, segment.p1.screen.w, segment.p2.screen.x, segment.p2.screen.y, segment.p2.screen.w, segment.fog, segment.color);
- maxy = segment.p1.screen.y;
-} 
+	let baseSegment = Segment.find(position);
+	let basePercent = Util.percentRemaining(position, segmentLength);
+	let playerSegment = Segment.find(position + playerZ);
+	console.log('playerSegment', playerSegment);
+	let playerPercent = Util.percentRemaining(position + playerZ, segmentLength);
+	let playerY = Util.interpolate(playerSegment.p1.world.y, playerSegment.p2.world.y, playerPercent);
+	let maxy = height;
+	let x = 0;
+	let dx = -(baseSegment.curve * basePercent);
+	ctx.clearRect(0, 0, width, height);
+
+	let n, i, segment, car, sprite, spriteScale, spriteX, spriteY;
+
+	for (n = 0; n < drawDistance; n++) {
+		segment = segments[(baseSegment.index + n) % segments.length];
+		segment.looped = segment.index < baseSegment.index;
+		segment.fog = Util.exponentialFog(n / drawDistance, fogDensity);
+		segment.clip = maxy;
+		Util.project(segment.p1, playerX * roadWidth - x, playerY + cameraHeight, position - (segment.looped ? trackLength : 0), cameraDepth, width, height, roadWidth);
+		Util.project(segment.p2, playerX * roadWidth - x - dx, playerY + cameraHeight, position - (segment.looped ? trackLength : 0), cameraDepth, width, height, roadWidth);
+		x = x + dx;
+		dx = dx + segment.curve;
+		if (
+			segment.p1.camera.z <= cameraDepth || // behind us
+			segment.p2.screen.y >= segment.p1.screen.y || // back face cull
+			segment.p2.screen.y >= maxy
+		) {
+			// clip by (already rendered) hill
+			continue;
+		}
+		Render.segment(ctx, width, lanes, segment.p1.screen.x, segment.p1.screen.y, segment.p1.screen.w, segment.p2.screen.x, segment.p2.screen.y, segment.p2.screen.w, segment.fog, segment.color);
+		maxy = segment.p1.screen.y;
+	}
 };

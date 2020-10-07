@@ -15,7 +15,7 @@ class Road {
         segments = [];
         Road.addStraight();
         Road.addStraight();
-                    Road.addStraight();
+        Road.addStraight();
         segments[Segment.find(playerZ).index + 2].color = COLORS.START;
         segments[Segment.find(playerZ).index + 3].color = COLORS.START;
         for (var n = 0; n < rumbleLength; n++) segments[segments.length - 1 - n].color = COLORS.FINISH;
